@@ -26,6 +26,8 @@ import json
 import os
 import zipfile
 import tempfile
+import random
+import hashlib
 
 API_BASE = "https://dev-apis-xyz.pantheonsite.io/wp-content/apis/freeAi.php"
 MODEL = "gemini"
@@ -289,6 +291,312 @@ CDNS = {
 }
 
 
+
+# ════════════════════════════════════════════════════════════════════════════════
+# DESIGN VARIETY ENGINE — ensures every build looks completely different
+# ════════════════════════════════════════════════════════════════════════════════
+
+DESIGN_PERSONALITIES = [
+    {
+        "id": "aurora-dark",
+        "description": "Deep space dark with aurora gradient accents — animated color blobs, heavy glassmorphism, electric glow on interactive elements",
+        "bg_style": "background: radial-gradient(ellipse at 20% 50%, #0f172a 0%, #020617 40%, #0a0a1a 100%); min-height:100vh;",
+        "sidebar_style": "background: rgba(15,23,42,0.95); backdrop-filter: blur(20px); border-right: 1px solid rgba(99,102,241,0.15);",
+        "header_style": "background: rgba(2,6,23,0.8); backdrop-filter: blur(20px); border-bottom: 1px solid rgba(99,102,241,0.15);",
+        "card_style": "background: rgba(15,23,42,0.7); backdrop-filter: blur(16px); border: 1px solid rgba(255,255,255,0.08); border-radius: 16px;",
+        "body_bg": "#020617",
+        "text_primary": "#e2e8f0",
+        "text_secondary": "#94a3b8",
+        "surface": "rgba(15,23,42,0.7)",
+        "surface2": "rgba(30,41,59,0.8)",
+        "border_color": "rgba(99,102,241,0.15)",
+        "extra_css": """
+body::before { content:''; position:fixed; top:-50%; left:-50%; width:200%; height:200%; background: radial-gradient(circle at 30% 30%, rgba(99,102,241,0.06) 0%, transparent 50%), radial-gradient(circle at 70% 70%, rgba(168,85,247,0.04) 0%, transparent 50%); pointer-events:none; z-index:0; }
+.main-content { position:relative; z-index:1; }
+""",
+        "dark_mode_class": "dark",
+        "tailwind_theme": "indigo",
+    },
+    {
+        "id": "neon-cyberpunk",
+        "description": "Black base with electric cyan/magenta neon accents — glowing borders, scanline texture, terminal aesthetic mixed with modern",
+        "bg_style": "background: #050505;",
+        "sidebar_style": "background: #0a0a0a; border-right: 1px solid rgba(0,255,200,0.15); box-shadow: 2px 0 20px rgba(0,255,200,0.05);",
+        "header_style": "background: rgba(5,5,5,0.95); backdrop-filter: blur(10px); border-bottom: 1px solid rgba(0,255,200,0.12);",
+        "card_style": "background: #0d0d0d; border: 1px solid rgba(0,255,200,0.12); border-radius: 8px; box-shadow: 0 0 20px rgba(0,255,200,0.03);",
+        "body_bg": "#050505",
+        "text_primary": "#e0fff8",
+        "text_secondary": "rgba(0,255,200,0.6)",
+        "surface": "#0d0d0d",
+        "surface2": "#141414",
+        "border_color": "rgba(0,255,200,0.15)",
+        "extra_css": """
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&display=swap');
+body { font-family: 'JetBrains Mono', monospace !important; }
+body::after { content:''; position:fixed; inset:0; background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,255,200,0.01) 2px, rgba(0,255,200,0.01) 4px); pointer-events:none; z-index:9999; }
+.nav-link:hover, .nav-link.active { text-shadow: 0 0 8px currentColor; }
+.btn-primary { box-shadow: 0 0 15px rgba(0,255,200,0.3); }
+""",
+        "dark_mode_class": "dark",
+        "tailwind_theme": "cyan",
+    },
+    {
+        "id": "corporate-light",
+        "description": "Clean white/light gray professional SaaS — crisp shadows, generous whitespace, blue accents, minimal and focused",
+        "bg_style": "background: #f8fafc;",
+        "sidebar_style": "background: #ffffff; border-right: 1px solid #e2e8f0; box-shadow: 1px 0 0 #e2e8f0;",
+        "header_style": "background: #ffffff; border-bottom: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.05);",
+        "card_style": "background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.04);",
+        "body_bg": "#f8fafc",
+        "text_primary": "#0f172a",
+        "text_secondary": "#64748b",
+        "surface": "#ffffff",
+        "surface2": "#f1f5f9",
+        "border_color": "#e2e8f0",
+        "extra_css": """
+body { color: #0f172a; }
+.nav-link { color: #475569; }
+.nav-link:hover { background: #f1f5f9; color: #0f172a; }
+.nav-link.active { color: var(--brand); background: rgba(var(--brand-rgb),0.08); }
+.data-table th { background: #f8fafc; color: #64748b; }
+.data-table tr:hover td { background: #f8fafc; }
+.card:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
+""",
+        "dark_mode_class": "",
+        "tailwind_theme": "blue",
+    },
+    {
+        "id": "gradient-luxury",
+        "description": "Rich deep gradient base (violet-to-indigo), frosted glass panels, premium typography, gold/white accents",
+        "bg_style": "background: linear-gradient(135deg, #1e0a3c 0%, #0f0a2e 30%, #0a1628 60%, #0d1f3c 100%); min-height:100vh;",
+        "sidebar_style": "background: rgba(15,10,46,0.85); backdrop-filter: blur(20px); border-right: 1px solid rgba(255,255,255,0.08);",
+        "header_style": "background: rgba(10,10,40,0.7); backdrop-filter: blur(20px); border-bottom: 1px solid rgba(255,255,255,0.08);",
+        "card_style": "background: rgba(255,255,255,0.04); backdrop-filter: blur(20px); border: 1px solid rgba(255,255,255,0.1); border-radius: 20px;",
+        "body_bg": "#0f0a2e",
+        "text_primary": "#f0eeff",
+        "text_secondary": "rgba(200,185,255,0.7)",
+        "surface": "rgba(255,255,255,0.04)",
+        "surface2": "rgba(255,255,255,0.07)",
+        "border_color": "rgba(255,255,255,0.1)",
+        "extra_css": """
+body::before { content:''; position:fixed; top:0; right:0; width:600px; height:600px; background: radial-gradient(circle, rgba(139,92,246,0.12) 0%, transparent 70%); pointer-events:none; }
+body::after { content:''; position:fixed; bottom:0; left:0; width:500px; height:500px; background: radial-gradient(circle, rgba(59,130,246,0.08) 0%, transparent 70%); pointer-events:none; }
+h1,h2,h3 { letter-spacing: -0.025em; }
+""",
+        "dark_mode_class": "dark",
+        "tailwind_theme": "violet",
+    },
+    {
+        "id": "emerald-forest",
+        "description": "Deep forest green dark theme — teal-to-emerald gradients, organic feel, earthy sophisticated tones",
+        "bg_style": "background: linear-gradient(160deg, #022c22 0%, #030f0d 40%, #031f14 100%);",
+        "sidebar_style": "background: rgba(2,20,15,0.95); backdrop-filter: blur(16px); border-right: 1px solid rgba(16,185,129,0.12);",
+        "header_style": "background: rgba(2,15,10,0.85); backdrop-filter: blur(16px); border-bottom: 1px solid rgba(16,185,129,0.12);",
+        "card_style": "background: rgba(6,37,27,0.8); backdrop-filter: blur(12px); border: 1px solid rgba(16,185,129,0.1); border-radius: 14px;",
+        "body_bg": "#030f0d",
+        "text_primary": "#ecfdf5",
+        "text_secondary": "rgba(52,211,153,0.7)",
+        "surface": "rgba(6,37,27,0.8)",
+        "surface2": "rgba(12,55,40,0.6)",
+        "border_color": "rgba(16,185,129,0.12)",
+        "extra_css": """
+body::before { content:''; position:fixed; top:-200px; right:-200px; width:600px; height:600px; border-radius:50%; background:radial-gradient(circle, rgba(16,185,129,0.07) 0%, transparent 70%); pointer-events:none; }
+.btn-primary { box-shadow: 0 4px 20px rgba(16,185,129,0.25); }
+""",
+        "dark_mode_class": "dark",
+        "tailwind_theme": "emerald",
+    },
+    {
+        "id": "sunset-warm",
+        "description": "Warm dark sunset — deep charcoal with orange-amber-rose gradient accents, energetic vibrant feel",
+        "bg_style": "background: linear-gradient(150deg, #1a0a00 0%, #0f0800 40%, #1a0500 100%);",
+        "sidebar_style": "background: rgba(20,8,0,0.95); backdrop-filter: blur(16px); border-right: 1px solid rgba(249,115,22,0.12);",
+        "header_style": "background: rgba(15,8,0,0.85); backdrop-filter: blur(16px); border-bottom: 1px solid rgba(249,115,22,0.12);",
+        "card_style": "background: rgba(30,12,0,0.8); backdrop-filter: blur(12px); border: 1px solid rgba(249,115,22,0.1); border-radius: 14px;",
+        "body_bg": "#0f0800",
+        "text_primary": "#fff7ed",
+        "text_secondary": "rgba(251,146,60,0.8)",
+        "surface": "rgba(30,12,0,0.8)",
+        "surface2": "rgba(45,18,0,0.6)",
+        "border_color": "rgba(249,115,22,0.12)",
+        "extra_css": """
+body::before { content:''; position:fixed; top:-100px; left:50%; width:800px; height:400px; transform:translateX(-50%); background: radial-gradient(ellipse, rgba(249,115,22,0.06) 0%, transparent 70%); pointer-events:none; }
+.btn-primary { box-shadow: 0 4px 20px rgba(249,115,22,0.3); }
+""",
+        "dark_mode_class": "dark",
+        "tailwind_theme": "orange",
+    },
+    {
+        "id": "ocean-deep",
+        "description": "Deep ocean blue — navy-to-midnight-blue gradients, cool slate tones, calm professional yet modern",
+        "bg_style": "background: linear-gradient(160deg, #001528 0%, #000d1f 40%, #001020 100%);",
+        "sidebar_style": "background: rgba(0,12,30,0.95); backdrop-filter: blur(16px); border-right: 1px solid rgba(56,189,248,0.1);",
+        "header_style": "background: rgba(0,8,20,0.85); backdrop-filter: blur(16px); border-bottom: 1px solid rgba(56,189,248,0.1);",
+        "card_style": "background: rgba(0,20,45,0.7); backdrop-filter: blur(12px); border: 1px solid rgba(56,189,248,0.08); border-radius: 14px;",
+        "body_bg": "#000d1f",
+        "text_primary": "#e0f2fe",
+        "text_secondary": "rgba(125,211,252,0.7)",
+        "surface": "rgba(0,20,45,0.7)",
+        "surface2": "rgba(0,30,65,0.6)",
+        "border_color": "rgba(56,189,248,0.1)",
+        "extra_css": """
+body::before { content:''; position:fixed; bottom:-200px; left:-100px; width:700px; height:700px; border-radius:50%; background:radial-gradient(circle, rgba(14,165,233,0.06) 0%, transparent 70%); pointer-events:none; }
+.btn-primary { box-shadow: 0 4px 20px rgba(14,165,233,0.25); }
+""",
+        "dark_mode_class": "dark",
+        "tailwind_theme": "sky",
+    },
+    {
+        "id": "minimal-zinc",
+        "description": "Ultra-clean minimal dark zinc — near-black backgrounds, razor-thin borders, single accent, whitespace-first design",
+        "bg_style": "background: #09090b;",
+        "sidebar_style": "background: #09090b; border-right: 1px solid #27272a;",
+        "header_style": "background: rgba(9,9,11,0.95); backdrop-filter: blur(8px); border-bottom: 1px solid #27272a;",
+        "card_style": "background: #18181b; border: 1px solid #27272a; border-radius: 10px;",
+        "body_bg": "#09090b",
+        "text_primary": "#fafafa",
+        "text_secondary": "#71717a",
+        "surface": "#18181b",
+        "surface2": "#27272a",
+        "border_color": "#27272a",
+        "extra_css": """
+* { font-feature-settings: 'cv02','cv03','cv04','cv11'; }
+.nav-link { border-radius: 6px; font-size: 0.8125rem; }
+.card { transition: border-color 0.15s ease; }
+.card:hover { border-color: #3f3f46; }
+.btn { border-radius: 6px; font-size: 0.8125rem; font-weight: 500; }
+""",
+        "dark_mode_class": "dark",
+        "tailwind_theme": "zinc",
+    },
+    {
+        "id": "rose-blush",
+        "description": "Sophisticated dark with rose-pink accent palette — deep charcoal base, pink-to-purple gradient accents, feminine yet powerful",
+        "bg_style": "background: linear-gradient(135deg, #1a0010 0%, #0f000a 40%, #1a0018 100%);",
+        "sidebar_style": "background: rgba(20,0,12,0.95); backdrop-filter: blur(16px); border-right: 1px solid rgba(236,72,153,0.12);",
+        "header_style": "background: rgba(12,0,8,0.85); backdrop-filter: blur(16px); border-bottom: 1px solid rgba(236,72,153,0.12);",
+        "card_style": "background: rgba(30,0,18,0.8); backdrop-filter: blur(12px); border: 1px solid rgba(236,72,153,0.1); border-radius: 16px;",
+        "body_bg": "#0f000a",
+        "text_primary": "#fce7f3",
+        "text_secondary": "rgba(249,168,212,0.8)",
+        "surface": "rgba(30,0,18,0.8)",
+        "surface2": "rgba(45,0,27,0.6)",
+        "border_color": "rgba(236,72,153,0.12)",
+        "extra_css": """
+body::before { content:''; position:fixed; top:0; right:0; width:500px; height:500px; background:radial-gradient(circle, rgba(236,72,153,0.07) 0%, transparent 70%); pointer-events:none; }
+.btn-primary { box-shadow: 0 4px 20px rgba(236,72,153,0.3); }
+h1,h2,h3 { letter-spacing: -0.02em; }
+""",
+        "dark_mode_class": "dark",
+        "tailwind_theme": "pink",
+    },
+    {
+        "id": "slate-professional",
+        "description": "Balanced slate dark — neutral dark grays with a sophisticated cool tint, perfect for enterprise dashboards",
+        "bg_style": "background: #0f172a;",
+        "sidebar_style": "background: #0f172a; border-right: 1px solid rgba(148,163,184,0.08);",
+        "header_style": "background: rgba(15,23,42,0.95); backdrop-filter: blur(12px); border-bottom: 1px solid rgba(148,163,184,0.08);",
+        "card_style": "background: #1e293b; border: 1px solid rgba(148,163,184,0.08); border-radius: 12px;",
+        "body_bg": "#0f172a",
+        "text_primary": "#f1f5f9",
+        "text_secondary": "#94a3b8",
+        "surface": "#1e293b",
+        "surface2": "#273549",
+        "border_color": "rgba(148,163,184,0.08)",
+        "extra_css": """
+.card:hover { border-color: rgba(148,163,184,0.15); }
+.stat-card:hover { transform: translateY(-1px); }
+.btn-primary { letter-spacing: 0.01em; }
+""",
+        "dark_mode_class": "dark",
+        "tailwind_theme": "slate",
+    },
+]
+
+COLOR_PALETTES = [
+    {"primary": "#6366f1", "secondary": "#8b5cf6", "accent": "#ec4899", "name": "indigo-violet", "tailwind": "indigo"},
+    {"primary": "#3b82f6", "secondary": "#06b6d4", "accent": "#38bdf8", "name": "blue-cyan", "tailwind": "blue"},
+    {"primary": "#10b981", "secondary": "#059669", "accent": "#34d399", "name": "emerald-green", "tailwind": "emerald"},
+    {"primary": "#f59e0b", "secondary": "#f97316", "accent": "#fbbf24", "name": "amber-orange", "tailwind": "amber"},
+    {"primary": "#ef4444", "secondary": "#f97316", "accent": "#fb7185", "name": "red-orange", "tailwind": "red"},
+    {"primary": "#8b5cf6", "secondary": "#a855f7", "accent": "#d946ef", "name": "violet-fuchsia", "tailwind": "violet"},
+    {"primary": "#06b6d4", "secondary": "#0891b2", "accent": "#22d3ee", "name": "cyan-teal", "tailwind": "cyan"},
+    {"primary": "#ec4899", "secondary": "#db2777", "accent": "#f472b6", "name": "pink-rose", "tailwind": "pink"},
+    {"primary": "#14b8a6", "secondary": "#0d9488", "accent": "#2dd4bf", "name": "teal-emerald", "tailwind": "teal"},
+    {"primary": "#f97316", "secondary": "#ea580c", "accent": "#fb923c", "name": "orange-amber", "tailwind": "orange"},
+    {"primary": "#a855f7", "secondary": "#9333ea", "accent": "#e879f9", "name": "purple-fuchsia", "tailwind": "purple"},
+    {"primary": "#22c55e", "secondary": "#16a34a", "accent": "#86efac", "name": "green-lime", "tailwind": "green"},
+    {"primary": "#0ea5e9", "secondary": "#0284c7", "accent": "#7dd3fc", "name": "sky-blue", "tailwind": "sky"},
+    {"primary": "#e879f9", "secondary": "#d946ef", "accent": "#f0abfc", "name": "fuchsia-pink", "tailwind": "fuchsia"},
+    {"primary": "#84cc16", "secondary": "#65a30d", "accent": "#bef264", "name": "lime-green", "tailwind": "lime"},
+]
+
+# Domains that should lean toward light/professional themes
+LIGHT_THEME_DOMAINS = ["corporate", "legal", "medical", "hospital", "hr", "finance", "accounting", "bank"]
+# Domains that lean toward vibrant/energetic themes
+VIBRANT_DOMAINS = ["game", "social", "creative", "entertainment", "music", "art", "startup", "saas"]
+# Domains that lean toward dark/tech themes
+TECH_DOMAINS = ["crypto", "security", "hacker", "developer", "tool", "analytics", "ai", "data", "cloud"]
+
+
+def pick_design_variety(request: str, analysis: dict) -> dict:
+    """
+    Picks a unique design personality and color palette for every build.
+    Uses a hash of the request for deterministic variety — same request always
+    gets the same design, but different requests get different designs.
+    """
+    req_hash = int(hashlib.md5(request.strip().lower().encode()).hexdigest(), 16)
+    r = request.lower()
+    domain = analysis.get("domain", "").lower()
+    visual_style = analysis.get("visual_style", "").lower()
+
+    # Color palette selection — AI may have chosen one, otherwise we pick from palette
+    ai_primary = analysis.get("primary_color", "")
+    if ai_primary and ai_primary not in ("#6366f1", "#8b5cf6") and len(ai_primary) == 7:
+        # AI chose a non-default color — find closest palette match
+        palette = min(COLOR_PALETTES, key=lambda p: sum(abs(int(ai_primary[i:i+2],16) - int(p["primary"][i:i+2],16)) for i in (1,3,5)))
+    else:
+        # Seed-based selection for variety
+        palette = COLOR_PALETTES[req_hash % len(COLOR_PALETTES)]
+
+    # Design personality selection
+    # Respect AI's visual style if set explicitly
+    if "light" in visual_style or "minimal" in visual_style or any(d in domain for d in LIGHT_THEME_DOMAINS):
+        candidate_ids = ["corporate-light", "minimal-zinc", "slate-professional"]
+    elif "neon" in visual_style or "cyberpunk" in visual_style or any(d in r for d in TECH_DOMAINS):
+        candidate_ids = ["neon-cyberpunk", "aurora-dark", "minimal-zinc"]
+    elif "luxury" in visual_style or "gradient" in visual_style or any(d in r for d in ["luxury", "premium", "elite"]):
+        candidate_ids = ["gradient-luxury", "rose-blush", "aurora-dark"]
+    else:
+        # Full variety for everything else
+        candidate_ids = [p["id"] for p in DESIGN_PERSONALITIES]
+
+    # Pick from candidates using hash
+    candidates = [p for p in DESIGN_PERSONALITIES if p["id"] in candidate_ids]
+    if not candidates:
+        candidates = DESIGN_PERSONALITIES
+    personality = candidates[req_hash % len(candidates)]
+
+    # Override palette primary to match personality's tailwind theme suggestion if possible
+    personality_theme = personality.get("tailwind_theme", "")
+    if personality_theme:
+        theme_palette = next((p for p in COLOR_PALETTES if p["tailwind"] == personality_theme), None)
+        if theme_palette:
+            palette = theme_palette
+
+    return {
+        "personality": personality,
+        "palette": palette,
+        "primary_color": palette["primary"],
+        "secondary_color": palette["secondary"],
+        "accent_color": palette["accent"],
+        "color_palette_name": palette["name"],
+        "tailwind_theme": palette["tailwind"],
+        "design_id": personality["id"],
+        "design_description": personality["description"],
+    }
+
+
 def pick_cdns(traits: dict, project_type: str, stack: list) -> list[str]:
     selected = ["tailwind", "fontawesome"]
     if traits.get("is_landing"):
@@ -340,11 +648,11 @@ Output ONLY this JSON (no other text — be exhaustive, specific, and ambitious)
   "detected_type": "management|landing|webapp|dashboard|game|3d-scene|api|ecommerce|social|tool|portfolio",
   "domain": "highly specific domain (e.g., hospital patient & appointment management ERP, neon browser snake game with power-ups, SaaS AI writing productivity tool)",
   "brand_name": "catchy, professional, memorable brand name",
-  "primary_color": "#6366f1",
-  "secondary_color": "#8b5cf6",
-  "accent_color": "#ec4899",
-  "color_palette_name": "purple-indigo|blue-cyan|green-emerald|orange-amber|red-rose|slate-gray",
-  "visual_style": "dark-glass|light-minimal|neon-cyberpunk|corporate-professional|colorful-vibrant|gradient-luxury",
+  "primary_color": "PICK the best hex color for this domain — medical=teal(#0d9488), finance=blue(#2563eb), nature=green(#16a34a), food=orange(#ea580c), beauty=rose(#e11d48), tech=violet(#7c3aed), corporate=slate(#475569), luxury=gold(#b45309) — NOT always #6366f1",
+  "secondary_color": "A complementary color hex that pairs beautifully with primary_color",
+  "accent_color": "A punchy highlight color hex for CTAs and highlights",
+  "color_palette_name": "choose ONE: purple-indigo|blue-cyan|green-emerald|orange-amber|red-rose|slate-gray|teal-mint|violet-pink|gold-amber|sky-blue",
+  "visual_style": "choose ONE that best matches domain: dark-glass|light-minimal|neon-cyberpunk|corporate-professional|colorful-vibrant|gradient-luxury|emerald-nature|ocean-deep|rose-elegant|slate-professional",
   "ui_complexity": "enterprise",
   "target_user": "detailed description of who uses this, their workflow, and what they need",
   "key_entities": ["PrimaryEntity", "SecondaryEntity", "TertiaryEntity", "QuaternaryEntity"],
@@ -384,14 +692,25 @@ Output ONLY this JSON (no other text — be exhaustive, specific, and ambitious)
         analysis.setdefault("enhanced_request", request)
         analysis.setdefault("domain", request)
         analysis.setdefault("brand_name", request.title())
-        analysis.setdefault("primary_color", "#6366f1")
-        analysis.setdefault("visual_style", "dark-glass")
         analysis.setdefault("critical_features", [])
-        analysis.setdefault("color_theme_tailwind", "indigo")
         analysis.setdefault("ui_complexity", "enterprise")
         analysis.setdefault("advanced_features", [])
         analysis["original"] = request
         analysis["traits"] = traits
+
+        # ── Inject design variety — unique personality for every build ──────────
+        variety = pick_design_variety(request, analysis)
+        # Override with variety colors if AI chose a generic default
+        ai_primary = analysis.get("primary_color", "")
+        if not ai_primary or ai_primary in ("#6366f1",) or len(ai_primary) != 7:
+            analysis["primary_color"] = variety["primary_color"]
+            analysis["secondary_color"] = variety["secondary_color"]
+        analysis.setdefault("secondary_color", variety["secondary_color"])
+        analysis.setdefault("visual_style", variety["design_id"])
+        analysis.setdefault("color_theme_tailwind", variety["tailwind_theme"])
+        # Always attach design variety metadata
+        analysis["design_variety"] = variety
+        analysis["color_theme_tailwind"] = variety["tailwind_theme"]
 
         return analysis
 
@@ -620,13 +939,19 @@ Output ONLY this JSON (no other text — be exhaustive, specific, and ambitious)
         return "generic"
 
     def _detect_color(self, r: str, traits: dict) -> str:
-        if traits.get("is_game"): return "#8b5cf6"
+        if any(w in r for w in ["green", "nature", "eco", "health", "environment"]): return "#10b981"
+        if any(w in r for w in ["blue", "ocean", "water", "sky", "corporate"]): return "#3b82f6"
+        if any(w in r for w in ["orange", "warm", "fire", "energy", "food"]): return "#f97316"
+        if any(w in r for w in ["red", "danger", "alert", "urgent"]): return "#ef4444"
+        if any(w in r for w in ["purple", "creative", "ai", "magic"]): return "#8b5cf6"
+        if any(w in r for w in ["pink", "beauty", "fashion", "love"]): return "#ec4899"
+        if any(w in r for w in ["teal", "medical", "clean", "minimal"]): return "#14b8a6"
+        if any(w in r for w in ["yellow", "gold", "finance", "money", "premium"]): return "#f59e0b"
+        if traits.get("is_game"): return "#a855f7"
         if traits.get("is_landing"): return "#6366f1"
-        if any(w in r for w in ["green", "nature", "eco"]): return "#22c55e"
-        if any(w in r for w in ["blue", "ocean", "water"]): return "#3b82f6"
-        if any(w in r for w in ["orange", "warm", "fire"]): return "#f97316"
-        if any(w in r for w in ["red", "danger", "alert"]): return "#ef4444"
-        return "#6366f1"
+        # Use request hash for variety instead of always returning indigo
+        palette = COLOR_PALETTES[int(hashlib.md5(r.encode()).hexdigest(), 16) % len(COLOR_PALETTES)]
+        return palette["primary"]
 
 
 # ════════════════════════════════════════════════════════════════════════════════
@@ -696,9 +1021,11 @@ Output ONLY this JSON (no other text):
 
 RULES:
 - project_name must be highly specific (e.g., "hospital-patient-portal", NOT "web-app")
-- features must be domain-specific, not generic
-- 8+ features minimum, all specific to THIS exact domain
-- views must match the domain's real workflows"""
+- features must be domain-specific, not generic — include real domain workflows
+- 12+ features minimum, each highly specific with implementation detail
+- views: minimum 7 for management apps, 6 for dashboards, 5 for others
+- Every feature must name specific data fields, interactions, or calculations
+- Do NOT include generic features like "CRUD operations" — be specific to THIS domain"""
 
         resp = call_ai(prompt, timeout=70)
         plan = extract_json(resp) or {}
@@ -2806,12 +3133,56 @@ Output ONLY complete ```javascript."""
         else:
             return self._webapp_prompt(req, name, features, color, cdn_tags, views, analysis)
 
+    def _design_dna(self, req: str, analysis: dict) -> str:
+        """Return a design-variety block to inject into every HTML/CSS prompt."""
+        variety = analysis.get("design_variety") or pick_design_variety(req, analysis)
+        personality = variety.get("personality", DESIGN_PERSONALITIES[0])
+        palette = variety.get("palette", COLOR_PALETTES[0])
+        accent = variety.get("primary_color", "#6366f1")
+        secondary = variety.get("secondary_color", "#8b5cf6")
+        pid = personality.get("id", "aurora-dark")
+        desc = personality.get("description", "dark professional")
+        body_bg = personality.get("body_bg", "#030712")
+        text_primary = personality.get("text_primary", "#f9fafb")
+        text_secondary = personality.get("text_secondary", "#9ca3af")
+        surface = personality.get("surface", "#111827")
+        border_color = personality.get("border_color", "#1f2937")
+        extra_css = personality.get("extra_css", "")
+        card_style = personality.get("card_style", "")
+        try:
+            r_v, g_v, b_v = tuple(int(accent.lstrip("#")[i:i+2], 16) for i in (0, 2, 4))
+            rgb = f"{r_v},{g_v},{b_v}"
+        except Exception:
+            rgb = "99,102,241"
+
+        return f"""
+═══ DESIGN PERSONALITY: {pid} ═══
+Description: {desc}
+You MUST apply this personality precisely. DO NOT default to generic dark glassmorphism with indigo.
+
+REQUIRED DESIGN TOKENS (use EXACTLY these values):
+  --brand: {accent}  (RGB: {rgb})
+  --brand-secondary: {secondary}
+  --bg: {body_bg}
+  --surface: {surface}
+  --border: {border_color}
+  --text-primary: {text_primary}
+  --text-secondary: {text_secondary}
+
+Additional CSS personality rules to apply:
+  {extra_css}
+  Cards: {card_style}
+
+Color palette: primary={palette.get('primary', accent)}, secondary={palette.get('secondary', secondary)}, accent={palette.get('accent', secondary)}, bg={palette.get('bg', body_bg)}, text={palette.get('text', text_primary)}
+═══ END DESIGN PERSONALITY ═══"""
+
     def _webapp_prompt(self, req, name, features, color, cdn_tags, views, analysis) -> str:
         feat_str = "\n".join(f"  - {f}" for f in features)
         views_desc = ", ".join(v.get("name", "") for v in views) if views else "Main, Dashboard, List, Settings"
-        visual_style = analysis.get("visual_style", "dark-glass")
-        accent = analysis.get("primary_color", "#6366f1")
-        secondary = analysis.get("secondary_color", "#8b5cf6")
+        variety = analysis.get("design_variety") or pick_design_variety(req, analysis)
+        accent = variety.get("primary_color", analysis.get("primary_color", "#6366f1"))
+        secondary = variety.get("secondary_color", analysis.get("secondary_color", "#8b5cf6"))
+        design_dna = self._design_dna(req, analysis)
         enhanced = analysis.get("enhanced_request", req)
 
         prompt = f"""You are the world's best frontend engineer and UI/UX designer. Write a COMPLETE, PRODUCTION-READY, VISUALLY STUNNING, ENTERPRISE-GRADE single-file HTML web app. MINIMUM 800 LINES OF REAL CODE. ZERO placeholders. ZERO TODOs. ZERO stubs. Every feature fully implemented and working.
@@ -2819,10 +3190,10 @@ Output ONLY complete ```javascript."""
 PROJECT: "{req}"
 ENHANCED: "{enhanced}"
 APP NAME: {name}
-VISUAL STYLE: {visual_style}
 PRIMARY COLOR: {accent}
 SECONDARY COLOR: {secondary}
 SECTIONS/VIEWS: {views_desc}
+{design_dna}
 
 REQUIRED FEATURES — implement ALL of these COMPLETELY and PERFECTLY:
 {feat_str}
@@ -2833,7 +3204,7 @@ MANDATORY TECHNICAL REQUIREMENTS — implement EVERY SINGLE ONE:
 3. Full dark/light mode: 'dark:' classes everywhere, toggle button with moon/sun icon, saved to localStorage
 4. Alpine.js x-data for ALL reactive state — interactive dropdowns, tabs, toggles, counters
 5. CSS custom properties in <style>: --brand: {accent}; --brand-rgb: (r,g,b); full color system
-6. STUNNING hero/header: gradient background, glassmorphism cards, animated elements, particle effect or gradient orbs
+6. STUNNING hero/header: background matching the design personality above, visually striking cards (use the personality's card_style — may be glass/flat/bordered/gradient), animated elements, particle effect or gradient orbs
 7. Sticky navbar: logo left, nav links center (active states), dark toggle + CTA right, mobile hamburger with animated menu
 8. Multi-section/tab layout: MINIMUM 6 distinct sections/views with smooth transitions
 9. ALL data stored in localStorage — realistic sample data pre-loaded on first visit
@@ -2889,8 +3260,10 @@ Output ONLY the COMPLETE, UNTRUNCATED HTML in a ```html code block. No explanati
 
     def _landing_prompt(self, req, name, features, color, cdn_tags, views, analysis) -> str:
         feat_str = "\n".join(f"  - {f}" for f in features)
-        accent = analysis.get("primary_color", "#6366f1")
-        secondary = analysis.get("secondary_color", "#8b5cf6")
+        variety = analysis.get("design_variety") or pick_design_variety(req, analysis)
+        accent = variety.get("primary_color", analysis.get("primary_color", "#6366f1"))
+        secondary = variety.get("secondary_color", analysis.get("secondary_color", "#8b5cf6"))
+        design_dna = self._design_dna(req, analysis)
         enhanced = analysis.get("enhanced_request", req)
 
         prompt = f"""Write a GORGEOUS, CONVERSION-OPTIMIZED, PRODUCTION-READY landing page. MINIMUM 500 LINES OF CODE.
@@ -2900,6 +3273,7 @@ ENHANCED: "{enhanced}"
 BRAND: {name}
 PRIMARY COLOR: {accent}
 SECONDARY: {secondary}
+{design_dna}
 
 KEY FEATURES TO SHOWCASE:
 {feat_str}
@@ -2926,12 +3300,12 @@ TECHNICAL REQUIREMENTS:
 - Fully responsive: mobile, tablet, desktop breakpoints
 - Professional typography: large hero text, correct hierarchy
 
-VISUAL QUALITY:
-- Dark theme: bg-gray-950/gray-900 base
-- Gradient headlines: bg-gradient-to-r text-transparent bg-clip-text
-- Glass cards: bg-white/5 backdrop-blur border-white/10
-- Primary color: {accent} for CTAs, highlights
-- Smooth shadows, proper spacing, professional feel
+VISUAL QUALITY (follow the design personality above — do NOT default to dark gray themes):
+- Apply the design personality's background, surface, and text colors consistently
+- Gradient headlines: bg-gradient-to-r text-transparent bg-clip-text using brand colors
+- Cards styled per the personality's card_style (may be glass, bordered, flat, or gradient)
+- Primary color: {accent} for CTAs, highlights, active states
+- Smooth shadows, proper spacing, consistent visual language throughout
 
 CDNs loaded: {cdn_tags}
 
@@ -2949,13 +3323,16 @@ Output ONLY complete ```html. Real content — no lorem ipsum, real product copy
 
     def _dashboard_prompt(self, req, name, features, color, cdn_tags, analysis) -> str:
         feat_str = "\n".join(f"  - {f}" for f in features)
-        accent = analysis.get("primary_color", "#6366f1")
+        variety = analysis.get("design_variety") or pick_design_variety(req, analysis)
+        accent = variety.get("primary_color", analysis.get("primary_color", "#6366f1"))
+        design_dna = self._design_dna(req, analysis)
 
         prompt = f"""Write a COMPLETE, PROFESSIONAL analytics dashboard HTML file. MINIMUM 500 LINES.
 
 DASHBOARD: "{req}"
 NAME: {name}
 PRIMARY COLOR: {accent}
+{design_dna}
 
 REQUIRED FEATURES:
 {feat_str}
@@ -2995,13 +3372,16 @@ Output ONLY complete ```html."""
 
     def _game_prompt(self, req, name, features, color, cdn_tags, analysis) -> str:
         feat_str = "\n".join(f"  - {f}" for f in features)
-        accent = analysis.get("primary_color", "#8b5cf6")
+        variety = analysis.get("design_variety") or pick_design_variety(req, analysis)
+        accent = variety.get("primary_color", analysis.get("primary_color", "#8b5cf6"))
+        design_dna = self._design_dna(req, analysis)
 
         prompt = f"""Write a COMPLETE, FULLY PLAYABLE HTML5 Canvas game. MINIMUM 400 LINES. All game systems implemented.
 
 GAME: "{req}"
 NAME: {name}
 ACCENT COLOR: {accent}
+{design_dna}
 
 REQUIRED FEATURES:
 {feat_str}
@@ -3046,7 +3426,9 @@ Output ONLY complete ```html with ALL game code in <script> tags. No external de
 
     def _ecommerce_prompt(self, req, name, features, color, cdn_tags, analysis) -> str:
         feat_str = "\n".join(f"  - {f}" for f in features)
-        accent = analysis.get("primary_color", "#6366f1")
+        variety = analysis.get("design_variety") or pick_design_variety(req, analysis)
+        accent = variety.get("primary_color", analysis.get("primary_color", "#6366f1"))
+        design_dna = self._design_dna(req, analysis)
         enhanced = analysis.get("enhanced_request", req)
 
         prompt = f"""Write a COMPLETE, BEAUTIFUL e-commerce store HTML file. MINIMUM 500 LINES.
@@ -3055,6 +3437,7 @@ STORE: "{req}"
 ENHANCED: "{enhanced}"
 NAME: {name}
 PRIMARY: {accent}
+{design_dna}
 
 REQUIRED FEATURES:
 {feat_str}
@@ -3218,8 +3601,25 @@ Output ONLY the complete ```javascript code block. No explanations."""
     def _multifile_shell(self, req, name, features, color, arch, views, analysis) -> str:
         cdn_tags = "\n  ".join(arch.get("cdns", []))
         views_list = views or [{"name": "Dashboard"}, {"name": "Records"}, {"name": "Add New"}, {"name": "Reports"}]
-        accent = analysis.get("primary_color", {"indigo": "#6366f1", "violet": "#8b5cf6", "blue": "#3b82f6",
-                  "green": "#22c55e", "orange": "#f97316", "red": "#ef4444", "slate": "#64748b"}.get(color, "#6366f1"))
+
+        # ── Design Variety ────────────────────────────────────────────────────
+        variety = analysis.get("design_variety") or pick_design_variety(req, analysis)
+        personality = variety.get("personality", DESIGN_PERSONALITIES[0])
+        palette = variety.get("palette", COLOR_PALETTES[0])
+        accent = variety.get("primary_color", analysis.get("primary_color", "#6366f1"))
+
+        body_bg = personality.get("body_bg", "#030712")
+        text_primary = personality.get("text_primary", "#f9fafb")
+        text_secondary = personality.get("text_secondary", "#9ca3af")
+        surface = personality.get("surface", "#111827")
+        surface2 = personality.get("surface2", "#1f2937")
+        border_color = personality.get("border_color", "#1f2937")
+        sidebar_style = personality.get("sidebar_style", "background:#111827; border-right:1px solid #1f2937;")
+        header_style = personality.get("header_style", "background:rgba(17,24,39,0.9); backdrop-filter:blur(12px); border-bottom:1px solid #1f2937;")
+        card_style = personality.get("card_style", "background:#111827; border:1px solid #1f2937; border-radius:12px;")
+        body_style = personality.get("bg_style", f"background:{body_bg};")
+        extra_css = personality.get("extra_css", "")
+        dark_class = personality.get("dark_mode_class", "dark")
 
         domain = self._get_domain_smart(req, {"analysis": analysis})
         domain_icon = {
@@ -3271,9 +3671,10 @@ Output ONLY the complete ```javascript code block. No explanations."""
         )
 
         r_val, g_val, b_val = tuple(int(accent.lstrip("#")[i:i+2], 16) for i in (0, 2, 4))
+        accent_rgb = f"{r_val},{g_val},{b_val}"
 
         return f"""<!DOCTYPE html>
-<html lang="en" class="dark">
+<html lang="en" class="{dark_class}">
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
@@ -3283,6 +3684,20 @@ Output ONLY the complete ```javascript code block. No explanations."""
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   {cdn_tags}
   <link rel="stylesheet" href="styles.css"/>
+  <style>
+    :root {{
+      --brand: {accent};
+      --brand-rgb: {accent_rgb};
+      --body-bg: {body_bg};
+      --surface: {surface};
+      --surface-2: {surface2};
+      --border: {border_color};
+      --text-primary: {text_primary};
+      --text-secondary: {text_secondary};
+    }}
+    body {{ {body_style} color: var(--text-primary); min-height: 100vh; }}
+    {extra_css}
+  </style>
   <script>
     tailwind.config = {{
       darkMode: 'class',
@@ -3290,9 +3705,9 @@ Output ONLY the complete ```javascript code block. No explanations."""
         extend: {{
           colors: {{
             brand: {{
-              50: '#eef2ff', 100: '#e0e7ff', 200: '#c7d2fe',
-              300: '#a5b4fc', 400: '#818cf8', 500: '{accent}',
-              600: '#4f46e5', 700: '#4338ca', 800: '#3730a3', 900: '#312e81'
+              50: '#f5f3ff', 100: '#ede9fe', 200: '#ddd6fe',
+              300: '#c4b5fd', 400: '#a78bfa', 500: '{accent}',
+              600: '#7c3aed', 700: '#6d28d9', 800: '#5b21b6', 900: '#4c1d95'
             }}
           }}
         }}
@@ -3300,41 +3715,41 @@ Output ONLY the complete ```javascript code block. No explanations."""
     }};
   </script>
 </head>
-<body class="bg-gray-950 text-gray-100 min-h-screen">
+<body style="{body_style} color:{text_primary};">
 
   <!-- Mobile overlay -->
-  <div id="sidebar-overlay" class="fixed inset-0 bg-black/50 z-30 hidden lg:hidden" onclick="toggleSidebar()"></div>
+  <div id="sidebar-overlay" class="fixed inset-0 bg-black/60 z-30 hidden lg:hidden" onclick="toggleSidebar()"></div>
 
   <!-- Sidebar -->
-  <aside id="sidebar" class="sidebar w-64 bg-gray-900 border-r border-gray-800/50 flex flex-col min-h-screen fixed left-0 top-0 z-40 shadow-2xl">
+  <aside id="sidebar" class="sidebar w-64 flex flex-col min-h-screen fixed left-0 top-0 z-40" style="{sidebar_style}">
     <!-- Logo -->
-    <div class="p-5 border-b border-gray-800/50">
+    <div class="p-5" style="border-bottom:1px solid {border_color};">
       <div class="flex items-center gap-3">
-        <div class="w-9 h-9 rounded-xl flex items-center justify-center shadow-lg" style="background: linear-gradient(135deg, {accent}, {accent}99);">
+        <div class="w-9 h-9 rounded-xl flex items-center justify-center shadow-lg" style="background: linear-gradient(135deg, {accent}, {palette.get('secondary', accent+'99')});">
           <i class="fa-solid {domain_icon} text-white text-sm"></i>
         </div>
         <div class="min-w-0">
-          <h1 class="font-bold text-white text-sm truncate">{name}</h1>
-          <p class="text-gray-500 text-xs">{domain_subtitle}</p>
+          <h1 class="font-bold text-sm truncate" style="color:{text_primary};">{name}</h1>
+          <p class="text-xs" style="color:{text_secondary};">{domain_subtitle}</p>
         </div>
       </div>
     </div>
 
     <!-- Navigation -->
-    <nav class="flex-1 p-3 space-y-1 overflow-y-auto" id="sidebar-nav">
-      <p class="text-gray-600 text-xs font-medium uppercase tracking-wider px-3 py-2">Main Menu</p>
+    <nav class="flex-1 p-3 space-y-0.5 overflow-y-auto" id="sidebar-nav">
+      <p class="text-xs font-semibold uppercase tracking-wider px-3 py-2" style="color:{text_secondary}; opacity:0.5;">Navigation</p>
       {nav_links}
     </nav>
 
     <!-- User -->
-    <div class="p-4 border-t border-gray-800/50">
-      <div class="flex items-center gap-3 p-2.5 rounded-xl bg-gray-800/60 hover:bg-gray-800 transition cursor-pointer">
-        <div class="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white shadow" style="background: linear-gradient(135deg, {accent}, {accent}99);">A</div>
+    <div class="p-4" style="border-top:1px solid {border_color};">
+      <div class="flex items-center gap-3 p-2.5 rounded-xl cursor-pointer transition" style="background:rgba({accent_rgb},0.08);" onmouseover="this.style.background='rgba({accent_rgb},0.14)'" onmouseout="this.style.background='rgba({accent_rgb},0.08)'">
+        <div class="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white shadow" style="background: linear-gradient(135deg, {accent}, {palette.get('secondary', accent)});">A</div>
         <div class="flex-1 min-w-0">
-          <p class="text-sm font-medium text-white truncate">Admin User</p>
-          <p class="text-xs text-gray-500">Administrator</p>
+          <p class="text-sm font-medium truncate" style="color:{text_primary};">Admin User</p>
+          <p class="text-xs" style="color:{text_secondary};">Administrator</p>
         </div>
-        <i class="fa-solid fa-ellipsis-vertical text-gray-600 text-xs"></i>
+        <i class="fa-solid fa-ellipsis-vertical text-xs" style="color:{text_secondary};"></i>
       </div>
     </div>
   </aside>
@@ -3342,27 +3757,28 @@ Output ONLY the complete ```javascript code block. No explanations."""
   <!-- Main Content -->
   <div class="flex-1 flex flex-col min-h-screen main-content" style="margin-left:256px;">
     <!-- Header -->
-    <header class="sticky top-0 z-20 bg-gray-900/80 backdrop-blur-xl border-b border-gray-800/50 px-6 py-3.5 flex items-center justify-between gap-4">
+    <header class="sticky top-0 z-20 px-6 py-3.5 flex items-center justify-between gap-4" style="{header_style}">
       <div class="flex items-center gap-4">
-        <button onclick="toggleSidebar()" class="p-2 rounded-lg text-gray-400 hover:text-white hover:bg-gray-800 transition lg:hidden">
+        <button onclick="toggleSidebar()" class="p-2 rounded-lg transition lg:hidden" style="color:{text_secondary};" onmouseover="this.style.color='{text_primary}'" onmouseout="this.style.color='{text_secondary}'">
           <i class="fa-solid fa-bars text-base"></i>
         </button>
         <div class="relative hidden sm:block">
-          <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-xs"></i>
-          <input type="text" id="global-search" placeholder="Search anything... (Ctrl+K)"
+          <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-xs" style="color:{text_secondary};"></i>
+          <input type="text" id="global-search" placeholder="Search... (Ctrl+K)"
             oninput="handleSearch(this.value)"
-            class="bg-gray-800/80 border border-gray-700/50 rounded-xl pl-9 pr-4 py-2 text-sm text-gray-200 placeholder-gray-600 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500/20 w-64 transition"/>
+            style="background:{surface}; border:1px solid {border_color}; color:{text_primary}; border-radius:10px; padding:7px 12px 7px 34px; font-size:13px; outline:none; width:240px; transition:border-color 0.2s ease;"
+            onfocus="this.style.borderColor='{accent}'" onblur="this.style.borderColor='{border_color}'"/>
         </div>
       </div>
       <div class="flex items-center gap-2">
-        <button id="dark-toggle" onclick="toggleDarkMode()" class="p-2 rounded-xl bg-gray-800 hover:bg-gray-700 text-gray-400 hover:text-white transition" title="Toggle theme">
+        <button id="dark-toggle" onclick="toggleDarkMode()" class="p-2 rounded-xl transition" style="background:{surface}; color:{text_secondary};" title="Toggle theme">
           <i class="fa-solid fa-moon text-sm"></i>
         </button>
-        <button class="relative p-2 rounded-xl bg-gray-800 hover:bg-gray-700 text-gray-400 hover:text-white transition" title="Notifications">
+        <button class="relative p-2 rounded-xl transition" style="background:{surface}; color:{text_secondary};" title="Notifications">
           <i class="fa-solid fa-bell text-sm"></i>
-          <span class="absolute top-1.5 right-1.5 w-2 h-2 rounded-full" style="background:{accent};box-shadow:0 0 6px {accent};"></span>
+          <span class="absolute top-1.5 right-1.5 w-2 h-2 rounded-full" style="background:{accent}; box-shadow:0 0 6px {accent};"></span>
         </button>
-        <div class="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white ml-1 cursor-pointer" style="background:linear-gradient(135deg,{accent},{accent}99);" title="Profile">A</div>
+        <div class="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white ml-1 cursor-pointer" style="background:linear-gradient(135deg,{accent},{palette.get('secondary',accent)});" title="Profile">A</div>
       </div>
     </header>
 
@@ -3376,8 +3792,8 @@ Output ONLY the complete ```javascript code block. No explanations."""
   <div id="toast-container" class="fixed bottom-6 right-6 z-50 space-y-3 pointer-events-none"></div>
 
   <!-- Modal Overlay -->
-  <div id="modal-overlay" class="hidden fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-    <div id="modal-content" class="bg-gray-900 border border-gray-700/50 rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto pointer-events-auto"></div>
+  <div id="modal-overlay" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4" style="background:rgba(0,0,0,0.75); backdrop-filter:blur(8px);">
+    <div id="modal-content" class="w-full max-w-lg max-h-[90vh] overflow-y-auto pointer-events-auto" style="{card_style} padding:0;"></div>
   </div>
 
   {self._js_script_tags(arch)}
@@ -3387,47 +3803,84 @@ Output ONLY the complete ```javascript code block. No explanations."""
     def _css(self, fspec, plan, arch) -> str:
         req = plan.get("user_request", "")
         name = plan.get("project_name", "app").replace("-", " ").title()
-        color = arch.get("color", "indigo")
         analysis = plan.get("analysis", {})
-        accent = analysis.get("primary_color", {"indigo": "#6366f1", "violet": "#8b5cf6", "blue": "#3b82f6",
-                  "green": "#22c55e", "orange": "#f97316", "red": "#ef4444", "slate": "#64748b"}.get(color, "#6366f1"))
+        variety = analysis.get("design_variety") or pick_design_variety(req, analysis)
+        personality = variety.get("personality", DESIGN_PERSONALITIES[0])
+        accent = variety.get("primary_color", analysis.get("primary_color", "#6366f1"))
+        secondary = variety.get("secondary_color", "#8b5cf6")
+        body_bg = personality.get("body_bg", "#030712")
+        text_primary = personality.get("text_primary", "#f9fafb")
+        text_secondary = personality.get("text_secondary", "#9ca3af")
+        surface = personality.get("surface", "#111827")
+        surface2 = personality.get("surface2", "#1f2937")
+        border_color = personality.get("border_color", "#1f2937")
+        design_id = personality.get("id", "aurora-dark")
+        design_desc = personality.get("description", "dark professional")
+        card_style = personality.get("card_style", "")
+        extra_css = personality.get("extra_css", "")
         feat_str = "\n".join(f"  - {f}" for f in plan.get("features", []))
 
-        prompt = f"""Write COMPLETE, PRODUCTION-QUALITY CSS for this management web app: "{req}"
+        try:
+            r_val, g_val, b_val = tuple(int(accent.lstrip("#")[i:i+2], 16) for i in (0, 2, 4))
+            rgb = f"{r_val},{g_val},{b_val}"
+        except Exception:
+            rgb = "99,102,241"
+
+        prompt = f"""Write COMPLETE, PRODUCTION-QUALITY, VISUALLY DISTINCTIVE CSS for this web app: "{req}"
 App: {name}
-Primary accent: {accent}
-Features: {feat_str}
 
-MANDATORY — implement ALL of these:
-1. CSS custom properties at :root AND .dark: --brand, --bg, --surface, --surface-2, --border, --text-primary, --text-secondary, --text-muted
-2. .sidebar — smooth transform transition, box-shadow
-3. .nav-link — flex items-center, padding, border-radius, color, transition ALL
-4. .nav-link:hover, .nav-link.active — background rgba({",".join(str(int(accent.lstrip("#")[i:i+2], 16)) for i in (0,2,4))}, 0.15), color var(--brand), border-left 3px solid var(--brand)
-5. .view-section — fadeIn animation (opacity 0→1, translateY 8px→0, 0.3s)
-6. @keyframes fadeIn
-7. .data-table — full table styles: th background, padding, text-transform, letter-spacing; td padding, border-bottom; tr:hover background
-8. .card — background var(--surface), border, border-radius 12px, padding, transition, hover shadow
-9. .stat-card — card + flex justify-between, with hover transform translateY(-2px)
-10. .badge — inline-flex, border-radius 9999px, font-size 11px, font-weight 600, padding 2px 8px
-11. .badge-success, .badge-danger, .badge-warning, .badge-info — colored variants
-12. .btn — inline-flex items-center gap-2, padding, border-radius 8px, font-size 14px, cursor pointer, transition, border none
-13. .btn-primary — background var(--brand), color white, hover opacity 0.9
-14. .btn-danger — red variant
-15. .btn-secondary — gray variant
-16. .form-input — full width, background var(--surface), border var(--border), border-radius 8px, padding, color, focus border-color var(--brand), outline none, transition
-17. .form-group — margin-bottom 16px
-18. label — display block, font-size 13px, color var(--text-secondary), margin-bottom 6px
-19. #toast-container .toast — background var(--surface), border, border-radius 12px, padding 12px 16px, min-width 280px, flex items-center gap 10px, animation slideIn 0.3s ease
-20. @keyframes slideIn — from translateX(110%) to translateX(0)
-21. .skeleton — shimmer animation (background-position 200% to -200%)
-22. @keyframes shimmer
-23. #modal-overlay .modal — (already in HTML, just ensure styles work)
-24. @media (max-width: 1024px): .sidebar transform translateX(-100%), .main-content margin-left 0
-25. .sidebar.open — transform translateX(0)
-26. Scrollbar styling: thin, brand color thumb
-27. .main-content transition margin-left 0.3s ease
+DESIGN PERSONALITY: {design_id} — {design_desc}
+You MUST implement this exact design personality throughout the CSS. Do NOT default to generic dark glassmorphism.
 
-Output ONLY complete ```css. Minimum 100 lines."""
+Design Tokens (use these EXACTLY):
+- Primary accent: {accent} (RGB: {rgb})
+- Secondary: {secondary}
+- Body background: {body_bg}
+- Text primary: {text_primary}
+- Text secondary: {text_secondary}
+- Surface (cards): {surface}
+- Surface 2 (inputs, table headers): {surface2}
+- Border color: {border_color}
+- Card style hint: {card_style}
+
+Additional personality CSS to incorporate:
+{extra_css}
+
+MANDATORY CSS — implement ALL precisely:
+1. :root {{ --brand:{accent}; --brand-rgb:{rgb}; --bg:{body_bg}; --surface:{surface}; --surface-2:{surface2}; --border:{border_color}; --text-primary:{text_primary}; --text-secondary:{text_secondary}; --text-muted:rgba({rgb},0.4); }}
+2. * {{ box-sizing:border-box; margin:0; padding:0; }}
+3. body — use the design personality's background colors and text colors
+4. .sidebar — smooth transform transition, personality-appropriate styling (NOT always bg-gray-900)
+5. .nav-link — flex align-items-center, padding, border-radius, color var(--text-secondary), transition all, text-decoration none, display flex, margin-bottom 2px
+6. .nav-link:hover — background rgba(var(--brand-rgb), 0.12), color var(--text-primary)
+7. .nav-link.active — background rgba(var(--brand-rgb), 0.18), color var(--brand), border-left 3px solid var(--brand), font-weight 600
+8. .view-section — animation fadeIn 0.3s ease
+9. @keyframes fadeIn — opacity 0→1, translateY 10px→0
+10. .data-table — width 100%, border-collapse collapse, font-size .875rem
+11. .data-table th — background var(--surface-2), padding .7rem 1rem, text-align left, font-size .72rem, text-transform uppercase, letter-spacing .07em, color var(--text-secondary)
+12. .data-table td — padding .7rem 1rem, border-bottom 1px solid var(--border), color var(--text-primary)
+13. .data-table tr:hover td — background rgba(var(--brand-rgb), 0.04)
+14. .card — use personality's card_style, padding 1.25rem, transition box-shadow .2s ease
+15. .stat-card — display flex, justify-content space-between, align-items flex-start; hover translateY(-2px)
+16. .badge — inline-flex, border-radius 9999px, font-size .7rem, font-weight 600, padding .2rem .6rem
+17. .badge-success, .badge-danger, .badge-warning, .badge-info — with appropriate colors and background
+18. .btn — inline-flex items-center gap .45rem, padding .5rem 1rem, border-radius .55rem, font-size .875rem, font-weight 500, cursor pointer, transition all, border none
+19. .btn-primary — background var(--brand), color white, box-shadow 0 2px 12px rgba(var(--brand-rgb),.35)
+20. .btn-danger, .btn-secondary — appropriate variants
+21. .form-input — full-width, background var(--surface-2), border 1px solid var(--border), border-radius .55rem, padding .6rem .9rem, color var(--text-primary), outline none, transition border-color
+22. .form-input:focus — border-color var(--brand), box-shadow 0 0 0 3px rgba(var(--brand-rgb),.15)
+23. .form-group — margin-bottom 1.1rem
+24. label — display block, font-size .8rem, color var(--text-secondary), margin-bottom .4rem, font-weight 500
+25. #toast-container .toast — personality-appropriate background, border, border-radius, padding, min-width 290px, flex, animation slideIn 0.3s
+26. @keyframes slideIn, @keyframes shimmer
+27. .skeleton — shimmer background animation
+28. @media (max-width:1023px): .sidebar transform translateX(-100%), .sidebar.open translateX(0), .main-content margin-left 0 !important
+29. ::-webkit-scrollbar — thin, personality-appropriate colors
+30. .main-content — transition margin-left .3s ease
+
+ADD personality-specific special effects matching the design id "{design_id}".
+
+Output ONLY complete ```css. Minimum 120 lines. Make it beautiful and UNIQUE — not generic."""
 
         resp = call_ai(prompt, timeout=110)
         css = extract_code(resp, "css")
@@ -3517,15 +3970,20 @@ label {{ display:block; font-size:.8rem; color:var(--text-secondary); margin-bot
         views_str = ", ".join(f'"{v}"' for v in views_list)
         domain = self._get_domain_smart(req, plan)
 
-        prompt = f"""You are a senior JavaScript engineer. Write COMPLETE, PRODUCTION-READY app.js for a "{req}" web app. MINIMUM 350 LINES of real, working JavaScript. Every function FULLY implemented. Zero stubs. Zero TODOs. Every case handled.
+        analysis = plan.get("analysis", {})
+        variety = analysis.get("design_variety") or pick_design_variety(req, analysis)
+        accent = variety.get("primary_color", "#6366f1")
+
+        prompt = f"""You are a senior JavaScript engineer. Write COMPLETE, PRODUCTION-READY app.js for a "{req}" web app. MINIMUM 450 LINES of real, working JavaScript. Every function FULLY implemented. Zero stubs. Zero TODOs. Zero incomplete branches. Production quality.
 
 App: {name}
 Domain: {domain}
+Brand color: {accent}
 Views: {views_str}
 Features:
 {feat_str}
 
-IMPLEMENT ALL FUNCTIONS — zero stubs, zero TODOs:
+IMPLEMENT ALL FUNCTIONS — zero stubs, zero TODOs, every branch complete:
 
 1. showView(name):
    - Hide ALL .view-section elements
